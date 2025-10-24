@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 import 'result_screen.dart';
 
 late List<CameraDescription> cameras;
@@ -14,8 +16,8 @@ class ScanScreen extends StatefulWidget {
 }
 
 class _ScanScreenState extends State<ScanScreen> {
-  CameraController? _controller;
-  Future<void>? _initializeControllerFuture;
+  late CameraController _controller;
+  late Future<void> _initializeControllerFuture;
 
   @override
   void initState() {
@@ -23,45 +25,39 @@ class _ScanScreenState extends State<ScanScreen> {
     _initCamera();
   }
 
+  // Inisialisasi kamera
   void _initCamera() async {
-    try {
-      cameras = await availableCameras();
-      if (cameras.isEmpty) return;
-      _controller = CameraController(cameras[0], ResolutionPreset.medium);
-      _initializeControllerFuture = _controller!.initialize();
-      if (mounted) setState(() {});
-    } catch (e) {
-      // Jika kamera gagal inisialisasi, tampilkan pesan (tidak crash)
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal inisialisasi kamera: $e')),
-        );
-      }
+    cameras = await availableCameras();
+    _controller = CameraController(cameras[0], ResolutionPreset.medium);
+    _initializeControllerFuture = _controller.initialize();
+    if (mounted) {
+      setState(() {});
     }
   }
 
   @override
   void dispose() {
-    _controller?.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
+  // Proses OCR dari file gambar
   Future<String> _ocrFromFile(File imageFile) async {
     final inputImage = InputImage.fromFile(imageFile);
     final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
-    final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
+    final RecognizedText recognizedText =
+        await textRecognizer.processImage(inputImage);
     textRecognizer.close();
     return recognizedText.text;
   }
 
+  // Ambil foto dan proses hasil OCR
   Future<void> _takePicture() async {
     try {
-      // tunggu inisialisasi kamera jika belum selesai
       await _initializeControllerFuture;
 
       if (!mounted) return;
 
-      // perbaikan: gunakan semicolon, bukan koma
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Memproses OCR, mohon tunggu...'),
@@ -69,14 +65,16 @@ class _ScanScreenState extends State<ScanScreen> {
         ),
       );
 
-      final XFile image = await _controller!.takePicture();
-
+      final XFile image = await _controller.takePicture();
       final ocrText = await _ocrFromFile(File(image.path));
 
       if (!mounted) return;
+
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => ResultScreen(ocrText: ocrText)),
+        MaterialPageRoute(
+          builder: (_) => ResultScreen(ocrText: ocrText),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -88,43 +86,34 @@ class _ScanScreenState extends State<ScanScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // gunakan FutureBuilder untuk menunggu inisialisasi controller
-    return FutureBuilder<void>(
-      future: _initializeControllerFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
-        }
+    if (!_controller.value.isInitialized) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
 
-        // Pastikan controller sudah non-null dan terinisialisasi
-        if (_controller == null || !_controller!.value.isInitialized) {
-          return const Scaffold(
-            body: Center(child: Text('Kamera belum tersedia')),
-          );
-        }
-
-        return Scaffold(
-          appBar: AppBar(title: const Text('Kamera OCR')),
-          body: Column(
-            children: [
-              Expanded(
-                child: AspectRatio(
-                  aspectRatio: _controller!.value.aspectRatio,
-                  child: CameraPreview(_controller!),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: ElevatedButton.icon(
-                  onPressed: _takePicture,
-                  icon: const Icon(Icons.camera),
-                  label: const Text('Ambil Foto & Scan'),
-                ),
-              ),
-            ],
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Kamera OCR'),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: AspectRatio(
+              aspectRatio: _controller.value.aspectRatio,
+              child: CameraPreview(_controller),
+            ),
           ),
-        );
-      },
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: ElevatedButton.icon(
+              onPressed: _takePicture,
+              icon: const Icon(Icons.camera),
+              label: const Text('Ambil Foto & Scan'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
