@@ -5,28 +5,6 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-        // Tambahan mirror jika jaringan kamu susah akses google
-        maven { url "https://maven.aliyun.com/repository/google" }
-        maven { url "https://maven.aliyun.com/repository/gradle-plugin" }
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:8.0.2'
-    }
-}
-
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-        maven { url "https://maven.aliyun.com/repository/google" }
-        maven { url "https://maven.aliyun.com/repository/gradle-plugin" }
-    }
-}
-
 android {
     namespace = "com.example.ocr_sederhana"
     compileSdk = flutter.compileSdkVersion
